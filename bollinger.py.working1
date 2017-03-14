@@ -1,0 +1,110 @@
+'''
+(c) 2011, 2012 Georgia Tech Research Corporation
+This source code is released under the New BSD license.  Please see
+http://wiki.quantsoftware.org/index.php?title=QSTK_License
+for license details.
+
+Created on January, 24, 2013
+
+@author: fafe
+@contact: 
+@summary: Example tutorial code.
+'''
+
+# QSTK Imports
+import QSTK.qstkutil.DataAccess as da
+import QSTK.qstkutil.qsdateutil as qdu
+import QSTK.qstkutil.tsutil as tsu
+
+import datetime as dt
+import sys as sys
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
+# Third Party Imports
+def main():
+    
+    plot_chart = False
+    '''Main Function'''
+    # List of symbols
+    with open('symbols.txt') as f:
+        ls_symbols = f.read().splitlines()
+    #fo = open("symbols.txt", "r+")
+    #str = fo.readline();
+    #fo.close()
+
+    #ls_symbols = ["G"]
+
+    # We need closing prices so the timestamp should be hours=16.
+    dt_timeofday = dt.timedelta(hours=16)
+
+    # Start and End date of the charts
+    #dt_start = dt.datetime.strptime(sys.argv[1], "%Y/%m/%d") + dt.timedelta(hours=16)
+    dt_start = dt.datetime(2000, 1, 1) + dt_timeofday
+    dt_end = dt.datetime.strptime(sys.argv[1], "%Y/%m/%d") + dt_timeofday
+
+    # Get a list of trading days between the start and the end.
+    ldt_timestamps = qdu.getNYSEdays(dt_start, dt_end, dt_timeofday)
+    dt_start = qdu.getNYSEoffset(dt_end, -199)
+    ldt_timestamps = qdu.getNYSEdays(dt_start, dt_end, dt_timeofday)
+    
+    print dt_start
+    print dt_end
+    # Creating an object of the dataaccess class with Yahoo as the source.
+    c_dataobj = da.DataAccess('Yahoo')
+
+    # Keys to be read from the data, it is good to read everything in one go.
+    ls_keys = ['open', 'high', 'low', 'close', 'volume', 'actual_close']
+
+    # Reading the data, now d_data is a dictionary with the keys above.
+    # Timestamps and symbols are the ones that were specified before.
+    ldf_data = c_dataobj.get_data(ldt_timestamps, ls_symbols, ls_keys)
+    d_data = dict(zip(ls_keys, ldf_data))
+
+    # Copying close price into separate dataframe to find rets
+    df_close = d_data['close']
+    df_sma50 = pd.rolling_mean(d_data['close'], 50)
+    df_sma200 = pd.rolling_mean(d_data['close'], 200)
+    df_mean = pd.rolling_mean(d_data['close'], 20)
+    df_std = pd.rolling_std(d_data['close'], 20)
+    df_bollinger = (df_close - df_mean) / (2 * df_std)
+    
+    f = open('order/orders' + sys.argv[1].replace('/','') + '.csv','w')
+    #print df_close.tail()
+    #print df_mean.tail()
+    #print df_std.tail()
+    #print df_bollinger.tail()
+    # Plotting the prices with x-axis=timestamps
+    
+    for ls_symbol in ls_symbols:
+        #print ls_symbol + ",{},{},{},{}".format(df_close[ls_symbol][dt_end],df_sma50[ls_symbol][dt_end],df_sma200[ls_symbol][dt_end], df_bollinger[ls_symbol][dt_end])
+        f.write(ls_symbol + ",{},{},{},{},{}".format(df_close[ls_symbol][dt_end],df_sma50[ls_symbol][dt_end],df_sma200[ls_symbol][dt_end],df_sma50[ls_symbol][dt_end]/df_sma200[ls_symbol][dt_end],df_bollinger[ls_symbol][dt_end])+'\n')
+        
+        #print df_bollinger[ls_symbol].tail(1)
+        if plot_chart:
+            if df_bollinger[ls_symbol].tail(1) <= -0.75:
+                plt.clf()
+                plt.subplot(211)
+                plt.plot(ldt_timestamps, df_close[ls_symbol], label=ls_symbol)
+                plt.legend()
+                plt.ylabel('Price')
+                plt.xlabel('Date')
+                plt.xticks(size='xx-small')
+                plt.xlim(ldt_timestamps[0], ldt_timestamps[-1])
+                plt.subplot(212)
+                plt.plot(ldt_timestamps, df_bollinger[ls_symbol], label=ls_symbol+'-Bollinger')
+                plt.axhline(1.0, color='r')
+                plt.axhline(-1.0, color='r')
+                plt.legend()
+                plt.ylabel('Bollinger')
+                plt.xlabel('Date')
+                plt.xticks(size='xx-small')
+                plt.xlim(ldt_timestamps[0], ldt_timestamps[-1])
+                plt.savefig(ls_symbol+'.pdf', format='pdf')
+
+    f.close()
+    
+if __name__ == '__main__':
+    main()
