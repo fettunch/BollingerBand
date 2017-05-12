@@ -74,7 +74,7 @@ def main(mkt, str_buy_indicator, str_boll_threshold, str_sell_offeset, stop_loss
             continue
         str_date = file_name[9:17]
         dt_date = dt.datetime.strptime(str_date, "%Y%m%d")     
-        analysis_row = np.loadtxt(analysisPath + file_name, dtype='S5,f4,f4,f4,f4,f4,f4,f4,f4,f4,f4',
+        analysis_row = np.loadtxt(analysisPath + file_name, dtype='S8,f4,f4,f4,f4,f4,f4,f4,f4,f4,f4',
                             delimiter=',', comments="#", skiprows=1)
     
         # Sorting the portfolio by BOLLINGER value
